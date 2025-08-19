@@ -38,6 +38,13 @@ fi
 command -v pcb >/dev/null 2>&1 || { echo "pcb not found after install"; ls -la "$HOME/.local/bin" "/root/.local/bin" || true; exit 1; }
 pcb --version
 
+# Configure git safe directory to avoid "unsafe repository" errors in container
+if command -v git >/dev/null 2>&1; then
+  git config --global --add safe.directory "$GITHUB_WORKSPACE_DIR" || true
+  git config --global --add safe.directory '*' || true
+  git --version || true
+fi
+
 while IFS= read -r p; do
   echo "Processing: $p"
   if [[ -d "$GITHUB_WORKSPACE_DIR/$p" ]]; then
