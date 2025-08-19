@@ -6,6 +6,9 @@ inputs:
   paths:
     description: 'List of paths (dirs or .zen files), comma or newline separated'
     required: true
+  artifact-name:
+    description: 'Name for the uploaded artifact (used by workflows that upload)'
+    required: false
 
 outputs:
   artifact-dir:

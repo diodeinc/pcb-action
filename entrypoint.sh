@@ -21,7 +21,11 @@ printf "%s\n" "$NORMALIZED" > "$GITHUB_WORKSPACE_DIR/paths.txt"
 echo "Paths:"; cat "$GITHUB_WORKSPACE_DIR/paths.txt"
 
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-command -v pcb >/dev/null 2>&1 || { echo "pcb not found"; exit 1; }
+# Some base images set HOME to /github/home; ensure installers wrote to this user's home
+if [[ ! -x "$HOME/.local/bin/pcb" && -x "/root/.local/bin/pcb" ]]; then
+  export PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
+fi
+command -v pcb >/dev/null 2>&1 || { echo "pcb not found"; ls -la "$HOME/.local/bin" "/root/.local/bin" || true; exit 1; }
 pcb --version
 
 while IFS= read -r p; do
