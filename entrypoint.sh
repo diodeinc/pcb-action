@@ -80,9 +80,10 @@ while IFS= read -r p; do
     continue
   fi
 
-  if ! json_out=$(pcb release -f json "$target" 2>&1); then
+  # Capture only stdout as JSON; stream stderr to console
+  if ! json_out=$(pcb release -f json "$target" 2> >(tee /dev/stderr)); then
     echo "Release failed for: $p"
-    echo "$json_out"
+    # json_out might be empty or partial; errors already printed to stderr
     failed=1
     failed_list+=("$p")
     popd >/dev/null || true
