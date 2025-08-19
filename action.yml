@@ -1,0 +1,89 @@
+name: 'PCB Release Action'
+description: 'Run pcb release for provided paths and upload archives'
+author: 'Diode Inc.'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install pcb (latest)
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -y
+          apt-get install -y curl ca-certificates jq
+        elif command -v brew >/dev/null 2>&1; then
+          brew install jq curl
+        fi
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/latest/download/pcb-installer.sh | sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        command -v pcb
+        pcb --version
+
+    - name: Prepare paths
+      id: prep
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p artifacts
+        # Normalize input to newline-separated list
+        normalized=$(printf "%s" "${{ inputs.paths }}" | tr ',' '\n' | sed '/^\s*$/d' | sed 's/^\s*//;s/\s*$//')
+        printf "%s\n" "$normalized" > paths.txt
+        echo "Paths:"; cat paths.txt
+
+    - name: Run pcb release for each path
+      shell: bash
+      run: |
+        set -euo pipefail
+        while IFS= read -r p; do
+          echo "Processing: $p"
+          if [[ -d "$p" ]]; then
+            pushd "$p" >/dev/null
+            shopt -s nullglob
+            zens=( *.zen )
+            if [[ ${#zens[@]} -ne 1 ]]; then
+              echo "Expected exactly one .zen file in $p, found ${#zens[@]} — skipping"
+              popd >/dev/null
+              continue
+            fi
+            target="${zens[0]}"
+          else
+            target="$p"
+          fi
+          # Ensure target exists
+          if [[ ! -f "$target" ]]; then
+            echo "Target not found: $target — skipping"
+            [[ -d "$p" ]] && popd >/dev/null || true
+            continue
+          fi
+          json_out=$(pcb release -f json "$target")
+          echo "$json_out"
+          archive=$(jq -r '.archive' <<< "$json_out")
+          version=$(jq -r '.version' <<< "$json_out")
+          if [[ -z "$archive" || ! -f "$archive" ]]; then
+            echo "Release did not produce an archive for $p"
+            [[ -d "$p" ]] && popd >/dev/null || true
+            continue
+          fi
+          base_name=$(basename "${target%.zen}")
+          dest="$GITHUB_WORKSPACE/artifacts/${base_name}-${version}.zip"
+          cp "$archive" "$dest"
+          echo "Collected artifact: $dest"
+          [[ -d "$p" ]] && popd >/dev/null || true
+        done < paths.txt
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: artifacts/*
+        if-no-files-found: warn
+
+inputs:
+  paths:
+    description: 'List of paths (dirs or .zen files), comma or newline separated'
+    required: true
+  artifact-name:
+    description: 'Name for the uploaded artifact'
+    default: 'pcb-releases'
+    required: false
