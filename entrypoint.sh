@@ -45,6 +45,9 @@ if command -v git >/dev/null 2>&1; then
   git --version || true
 fi
 
+failed=0
+failed_list=()
+
 while IFS= read -r p; do
   echo "Processing: $p"
   if [[ -d "$GITHUB_WORKSPACE_DIR/$p" ]]; then
@@ -77,12 +80,21 @@ while IFS= read -r p; do
     continue
   fi
 
-  json_out=$(pcb release -f json "$target")
+  if ! json_out=$(pcb release -f json "$target" 2>&1); then
+    echo "Release failed for: $p"
+    echo "$json_out"
+    failed=1
+    failed_list+=("$p")
+    popd >/dev/null || true
+    continue
+  fi
   echo "$json_out"
-  archive=$(jq -r '.archive' <<< "$json_out")
-  version=$(jq -r '.version' <<< "$json_out")
+  archive=$(jq -r '.archive' <<< "$json_out" || true)
+  version=$(jq -r '.version' <<< "$json_out" || true)
   if [[ -z "$archive" || ! -f "$archive" ]]; then
     echo "Release did not produce an archive for $p"
+    failed=1
+    failed_list+=("$p")
     popd >/dev/null || true
     continue
   fi
@@ -101,4 +113,10 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "artifact-dir=$ARTIFACTS_DIR"
     printf "artifact-files<<EOF\n%s\nEOF\n" "$FILES"
   } >> "$GITHUB_OUTPUT"
+fi
+
+if [[ $failed -ne 0 ]]; then
+  echo "One or more boards failed to release:"
+  printf ' - %s\n' "${failed_list[@]}"
+  exit 1
 fi
