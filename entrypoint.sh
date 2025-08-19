@@ -80,18 +80,21 @@ while IFS= read -r p; do
     continue
   fi
 
-  # Capture only stdout as JSON; stream stderr to console
-  if ! json_out=$(pcb release -f json "$target" 2> >(tee /dev/stderr)); then
+  # Capture stdout to a temp file; stream stderr to console
+  tmp_stdout=$(mktemp)
+  if ! pcb release -f json "$target" > "$tmp_stdout" 2> >(tee /dev/stderr); then
     echo "Release failed for: $p"
-    # json_out might be empty or partial; errors already printed to stderr
+    # Errors already printed to stderr
     failed=1
     failed_list+=("$p")
     popd >/dev/null || true
     continue
   fi
-  echo "$json_out"
-  archive=$(jq -r '.archive' <<< "$json_out" || true)
-  version=$(jq -r '.version' <<< "$json_out" || true)
+  # Some logs may sneak into stdout; consider only the last 5 lines as the JSON payload
+  json_tail=$(tail -n 5 "$tmp_stdout")
+  echo "$json_tail"
+  archive=$(jq -r '.archive' <<< "$json_tail" 2>/dev/null || true)
+  version=$(jq -r '.version' <<< "$json_tail" 2>/dev/null || true)
   if [[ -z "$archive" || ! -f "$archive" ]]; then
     echo "Release did not produce an archive for $p"
     failed=1
