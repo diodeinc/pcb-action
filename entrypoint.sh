@@ -14,18 +14,28 @@ if [[ -z "$RAW_PATHS" ]]; then
   exit 1
 fi
 
-# Normalize to newline-separated list
-NORMALIZED=$(printf "%s" "$RAW_PATHS" | tr ',' '\n' | sed '/^\s*$/d' | sed 's/^\s*//;s/\s*$//')
+# Normalize to newline-separated list; interpret literal \n
+NORMALIZED=$(printf "%b" "$RAW_PATHS" | tr ',' '\n' | sed '/^\s*$/d' | sed 's/^\s*//;s/\s*$//')
 printf "%s\n" "$NORMALIZED" > "$GITHUB_WORKSPACE_DIR/paths.txt"
 
 echo "Paths:"; cat "$GITHUB_WORKSPACE_DIR/paths.txt"
 
+export HOME=${HOME:-/root}
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-# Some base images set HOME to /github/home; ensure installers wrote to this user's home
-if [[ ! -x "$HOME/.local/bin/pcb" && -x "/root/.local/bin/pcb" ]]; then
-  export PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
+# If pcb is missing, install at runtime as a fallback
+if ! command -v pcb >/dev/null 2>&1; then
+  echo "pcb not found; installing..."
+  if ! command -v curl >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y --no-install-recommends curl ca-certificates jq
+  fi
+  curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/latest/download/pcb-installer.sh | HOME=/root sh
+  # Try common install locations
+  if [[ ! -x "$HOME/.local/bin/pcb" && -x "/root/.local/bin/pcb" ]]; then
+    export PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
+  fi
 fi
-command -v pcb >/dev/null 2>&1 || { echo "pcb not found"; ls -la "$HOME/.local/bin" "/root/.local/bin" || true; exit 1; }
+command -v pcb >/dev/null 2>&1 || { echo "pcb not found after install"; ls -la "$HOME/.local/bin" "/root/.local/bin" || true; exit 1; }
 pcb --version
 
 while IFS= read -r p; do
