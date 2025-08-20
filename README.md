@@ -10,8 +10,8 @@ Reusable GitHub Action to run `pcb release` for one or more boards.
     # Newline or comma-separated list of paths to pass to `pcb release`.
     # Each path should point to either a `.zen` file or a directory containing exactly one `.zen`.
     paths: |
-      boards/9M0001
-      boards/9M0002/9M0002.zen
+      boards/DIO0001
+      boards/DIO0002/DIO0002.zen
     # Optional: artifact name prefix (defaults to `pcb-releases`)
     artifact-name: pcb-releases
 ```
