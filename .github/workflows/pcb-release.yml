@@ -1,0 +1,71 @@
+name: PCB Release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect boards
+    runs-on: ubuntu-latest
+    outputs:
+      boards: ${{ steps.discover.outputs.boards }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover .zen board files
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          BOARDS_JSON=$(python3 -c "import glob, json; print(json.dumps(sorted(glob.glob('boards/*/*.zen'))))")
+          if [ -z "${BOARDS_JSON}" ] || [ "${BOARDS_JSON}" = "[]" ]; then
+            echo "No boards found under boards/*/*.zen" >&2
+            exit 1
+          fi
+          echo "Found boards: ${BOARDS_JSON}"
+          echo "boards=${BOARDS_JSON}" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Release ${{ matrix.board }}
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board: ${{ fromJSON(needs.detect.outputs.boards) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout pcb-action at workflow commit
+        uses: actions/checkout@v4
+        with:
+          repository: diodeinc/pcb-action
+          ref: ${{ github.workflow_sha }}
+          path: _pcb_action
+
+      - name: Derive board name
+        id: names
+        shell: bash
+        run: |
+          set -euo pipefail
+          b="${{ matrix.board }}"
+          name="$(basename "$(dirname "$b")")"
+          echo "board_name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Run PCB release
+        id: release
+        uses: ./_pcb_action
+        with:
+          file: ${{ matrix.board }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcb-release-${{ steps.names.outputs.board_name }}-${{ steps.release.outputs.version }}
+          path: ${{ steps.release.outputs.archive }}
+

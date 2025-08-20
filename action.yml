@@ -1,21 +1,18 @@
-name: 'PCB Release Action'
-description: 'Run pcb release for provided paths inside the official KiCad container.'
-author: 'Diode Inc.'
+name: "PCB Release Action"
+description: "Run pcb release for a single .zen file inside the official KiCad container."
+author: "Diode Inc."
 
 inputs:
-  paths:
-    description: 'List of paths (dirs or .zen files), comma or newline separated'
+  file:
+    description: "Path to a .zen file (absolute or workspace-relative)"
     required: true
-  artifact-name:
-    description: 'Name for the uploaded artifact (used by workflows that upload)'
-    required: false
 
 outputs:
-  artifact-dir:
-    description: 'Directory containing collected release archives'
-  artifact-files:
-    description: 'Newline-separated list of collected archives (relative paths)'
+  archive:
+    description: "Absolute path to the produced release archive (.zip)"
+  version:
+    description: "Version string produced by pcb release"
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: "docker"
+  image: "Dockerfile"
