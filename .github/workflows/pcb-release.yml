@@ -41,13 +41,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout pcb-action at workflow commit
-        uses: actions/checkout@v4
-        with:
-          repository: diodeinc/pcb-action
-          ref: ${{ github.workflow_sha }}
-          path: _pcb_action
-
       - name: Derive board name
         id: names
         shell: bash
@@ -59,7 +52,7 @@ jobs:
 
       - name: Run PCB release
         id: release
-        uses: ./_pcb_action
+        uses: diodeinc/pcb-action@v1
         with:
           file: ${{ matrix.board }}
 
