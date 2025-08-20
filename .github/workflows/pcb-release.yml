@@ -56,9 +56,18 @@ jobs:
         with:
           file: ${{ matrix.board }}
 
+      - name: Normalize archive path for host
+        id: norm
+        shell: bash
+        run: |
+          set -euo pipefail
+          p='${{ steps.release.outputs.archive }}'
+          # Strip container workspace prefix if present
+          p="${p#/github/workspace/}"
+          echo "path=${p}" >> "$GITHUB_OUTPUT"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pcb-release-${{ steps.names.outputs.board_name }}-${{ steps.release.outputs.version }}
-          path: ${{ steps.release.outputs.archive }}
-
+          path: ${{ steps.norm.outputs.path }}
