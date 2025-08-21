@@ -42,6 +42,17 @@ if [[ ! -f "$target" ]]; then
   exit 1
 fi
 
+# Step 1: Build the project first
+echo "Building project with pcb build..."
+if ! pcb build "$target" 2>&1; then
+  echo "Build failed for: $p"
+  popd >/dev/null || true
+  exit 1
+fi
+echo "Build completed successfully"
+
+# Step 2: Run the release process
+echo "Running pcb release..."
 # Capture stdout to a temp file; stream stderr to console
 tmp_stdout=$(mktemp)
 if ! pcb release -f json "$target" > "$tmp_stdout" 2> >(tee /dev/stderr); then
