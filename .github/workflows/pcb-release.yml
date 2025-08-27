@@ -66,8 +66,18 @@ jobs:
           p="${p#/github/workspace/}"
           echo "path=${p}" >> "$GITHUB_OUTPUT"
 
+      - name: Sanitize version for artifact name
+        id: sanitize
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.release.outputs.version }}'
+          # Replace forward slashes with hyphens for valid artifact name
+          sanitized_version="${version//\//-}"
+          echo "version=${sanitized_version}" >> "$GITHUB_OUTPUT"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pcb-release-${{ steps.names.outputs.board_name }}-${{ steps.release.outputs.version }}
+          name: pcb-release-${{ steps.names.outputs.board_name }}-${{ steps.sanitize.outputs.version }}
           path: ${{ steps.norm.outputs.path }}
