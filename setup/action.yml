@@ -1,0 +1,20 @@
+name: "Setup PCB CLI"
+description: "Install the pcb CLI tool on the runner"
+author: "Diode Inc."
+
+inputs:
+  version:
+    description: "Version of pcb CLI to install (default: latest)"
+    required: false
+    default: "v0.2.0-prerelease.7"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install pcb CLI
+      shell: bash
+      run: |
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/download/${{ inputs.version }}/pcb-installer.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        export PATH="$HOME/.cargo/bin:$PATH"
+        pcb --version
