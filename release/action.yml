@@ -1,0 +1,47 @@
+name: "PCB Release"
+description: "Create a PCB release archive with optional artifact upload"
+author: "Diode Inc."
+
+inputs:
+  board:
+    description: "Name of the board to release"
+    required: true
+  upload:
+    description: "Whether to upload the release archive as an artifact"
+    required: false
+    default: "true"
+
+outputs:
+  archive_path:
+    description: "Path to the created archive file"
+    value: ${{ steps.release.outputs.archive_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get Board Path
+      id: board-path
+      shell: bash
+      run: |
+        pcb info -f json > pcb-info.json
+        zen_path=$(jq -r --arg board "${{ inputs.board }}" '.boards[] | select(.name == $board) | .zen_path' pcb-info.json)
+        echo "zen_path=$zen_path" >> "$GITHUB_OUTPUT"
+
+    - name: PCB Release
+      id: release
+      shell: bash
+      run: |
+        pcb release ${{ steps.board-path.outputs.zen_path }} -f json --source-only > pcb-release.json
+        short_sha=$(git rev-parse --short HEAD)
+        archive_name="${{ inputs.board }}-$short_sha.zip"
+        cp $(jq -r '.archive' pcb-release.json) $archive_name
+        echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
+        echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Release Archive
+      if: inputs.upload == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: pcb-release-${{ inputs.board }}-${{ steps.release.outputs.short_sha }}
+        path: ${{ steps.release.outputs.archive_name }}
+        retention-days: 30

@@ -5,79 +5,56 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   detect:
     name: Detect boards
     runs-on: ubuntu-latest
     outputs:
-      boards: ${{ steps.discover.outputs.boards }}
+      boards: ${{ steps.detect.outputs.boards }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Discover .zen board files
-        id: discover
-        shell: bash
-        run: |
-          set -euo pipefail
-          BOARDS_JSON=$(python3 -c "import glob, json; print(json.dumps(sorted(glob.glob('boards/*/*.zen'))))")
-          if [ -z "${BOARDS_JSON}" ] || [ "${BOARDS_JSON}" = "[]" ]; then
-            echo "No boards found under boards/*/*.zen" >&2
-            exit 1
-          fi
-          echo "Found boards: ${BOARDS_JSON}"
-          echo "boards=${BOARDS_JSON}" >> "$GITHUB_OUTPUT"
+      - name: Install pcb
+        uses: diodeinc/pcb-action/setup@97d21fc143d97e517081b054a30dc76f979d737e
+
+      - name: Detect boards
+        id: detect
+        uses: diodeinc/pcb-action/detect@97d21fc143d97e517081b054a30dc76f979d737e
 
   release:
     name: Release ${{ matrix.board }}
     needs: detect
     runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:9.0.3
+      options: --user root
     strategy:
       fail-fast: false
       matrix:
         board: ${{ fromJSON(needs.detect.outputs.boards) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Derive board name
-        id: names
-        shell: bash
-        run: |
-          set -euo pipefail
-          b="${{ matrix.board }}"
-          name="$(basename "$(dirname "$b")")"
-          echo "board_name=$name" >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y curl jq git
 
-      - name: Run PCB release
+      - name: Fix git permissions
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Install pcb
+        uses: diodeinc/pcb-action/setup@97d21fc143d97e517081b054a30dc76f979d737e
+
+      - name: Release
         id: release
-        uses: diodeinc/pcb-action@v1
+        uses: diodeinc/pcb-action/release@97d21fc143d97e517081b054a30dc76f979d737e
         with:
-          file: ${{ matrix.board }}
+          board: ${{ matrix.board }}
 
-      - name: Normalize archive path for host
-        id: norm
-        shell: bash
-        run: |
-          set -euo pipefail
-          p='${{ steps.release.outputs.archive }}'
-          # Strip container workspace prefix if present
-          p="${p#/github/workspace/}"
-          echo "path=${p}" >> "$GITHUB_OUTPUT"
-
-      - name: Sanitize version for artifact name
-        id: sanitize
-        shell: bash
-        run: |
-          set -euo pipefail
-          version='${{ steps.release.outputs.version }}'
-          # Replace forward slashes with hyphens for valid artifact name
-          sanitized_version="${version//\//-}"
-          echo "version=${sanitized_version}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Sign
+        uses: diodeinc/pcb-action/sign@97d21fc143d97e517081b054a30dc76f979d737e
         with:
-          name: pcb-release-${{ steps.names.outputs.board_name }}-${{ steps.sanitize.outputs.version }}
-          path: ${{ steps.norm.outputs.path }}
+          path: ${{ steps.release.outputs.archive_path }}
