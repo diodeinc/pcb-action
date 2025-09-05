@@ -14,5 +14,4 @@ runs:
       id: discover
       shell: bash
       run: |
-        pcb info -f json > pcb-info.json
-        echo "boards=$(jq -c '[.boards[].name]' pcb-info.json)" >> "$GITHUB_OUTPUT"
+        echo "boards=$(pcb info -f json | jq -c '[.boards[].name]')" >> "$GITHUB_OUTPUT"
