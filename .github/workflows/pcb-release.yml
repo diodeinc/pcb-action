@@ -18,11 +18,11 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install pcb
-        uses: diodeinc/pcb-action/setup@97d21fc143d97e517081b054a30dc76f979d737e
+        uses: diodeinc/pcb-action/setup@v2
 
       - name: Detect boards
         id: detect
-        uses: diodeinc/pcb-action/detect@97d21fc143d97e517081b054a30dc76f979d737e
+        uses: diodeinc/pcb-action/detect@v2
 
   release:
     name: Release ${{ matrix.board }}
@@ -46,15 +46,15 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Install pcb
-        uses: diodeinc/pcb-action/setup@97d21fc143d97e517081b054a30dc76f979d737e
+        uses: diodeinc/pcb-action/setup@v2
 
       - name: Release
         id: release
-        uses: diodeinc/pcb-action/release@97d21fc143d97e517081b054a30dc76f979d737e
+        uses: diodeinc/pcb-action/release@v2
         with:
           board: ${{ matrix.board }}
 
       - name: Sign
-        uses: diodeinc/pcb-action/sign@97d21fc143d97e517081b054a30dc76f979d737e
+        uses: diodeinc/pcb-action/sign@v2
         with:
           path: ${{ steps.release.outputs.archive_path }}
