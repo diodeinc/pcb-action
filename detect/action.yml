@@ -1,0 +1,18 @@
+name: "Detect PCB Boards"
+description: "Detect all PCB boards in the repository"
+author: "Diode Inc."
+
+outputs:
+  boards:
+    description: "JSON array of detected board names"
+    value: ${{ steps.discover.outputs.boards }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Discover boards
+      id: discover
+      shell: bash
+      run: |
+        pcb info -f json > pcb-info.json
+        echo "boards=$(jq -c '[.boards[].name]' pcb-info.json)" >> "$GITHUB_OUTPUT"
