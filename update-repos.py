@@ -468,7 +468,7 @@ def full_update_mode(owner: str, args):
     display_repos_table(repos, args.days)
     
     # Check source workflow exists
-    source_workflow = Path.cwd() / WORKFLOW_RELATIVE
+    source_workflow = Path.cwd() / "pcb-release.yml"
     if not source_workflow.exists():
         console.print(f"[red]Source workflow file not found: {source_workflow}[/red]")
         sys.exit(1)
