@@ -11,15 +11,16 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup Rust (for HEAD version)
-      if: ${{ inputs.version == 'HEAD' }}
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-
     - name: Install pcb CLI
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         if [ "${{ inputs.version }}" = "HEAD" ]; then
-          cargo install --git https://github.com/diodeinc/pcb pcb
+          # Download latest main build from prerelease
+          mkdir -p ~/.cargo/bin
+          gh release download latest --repo diodeinc/pcb --pattern pcb --dir ~/.cargo/bin
+          chmod +x ~/.cargo/bin/pcb
         elif [ "${{ inputs.version }}" = "latest" ]; then
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/latest/download/pcb-installer.sh | sh
         else
