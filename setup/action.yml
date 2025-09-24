@@ -16,6 +16,7 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
+        set -e -o pipefail
         if [ "${{ inputs.version }}" = "HEAD" ]; then
           # Download latest main build from prerelease
           mkdir -p ~/.cargo/bin
