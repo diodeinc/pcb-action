@@ -11,6 +11,9 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Setup GitHub CLI
+      uses: wusatosi/setup-gh@v1
+
     - name: Install pcb CLI
       shell: bash
       env:
