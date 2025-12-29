@@ -1,0 +1,101 @@
+name: "Label PCB Boards"
+description: "Add labels to PRs based on which boards have changes"
+author: "Diode Inc."
+
+inputs:
+  token:
+    description: "GitHub token with permission to add labels"
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get board paths and label PR
+      id: label
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -e -o pipefail
+
+        # Only run on PRs
+        if [[ -z "$GITHUB_HEAD_REF" ]]; then
+          echo "Not a pull request, skipping label update"
+          exit 0
+        fi
+
+        # Get PR number
+        PR_NUMBER=$(gh pr view --json number -q '.number' 2>/dev/null || echo "")
+        if [[ -z "$PR_NUMBER" ]]; then
+          echo "Could not determine PR number, skipping"
+          exit 0
+        fi
+
+        echo "Processing PR #$PR_NUMBER"
+
+        # Get board info from pcb
+        PCB_INFO=$(pcb info -f json)
+
+        # Extract board names and their relative paths
+        # Handle both old format (.boards[]) and new format (.packages[].config.board)
+        BOARDS_JSON=$(echo "$PCB_INFO" | jq -c '
+          if .packages then
+            [.packages | to_entries[] | select(.value.config.board != null) | {
+              name: .value.config.board.name,
+              path: .value.rel_path
+            }]
+          else
+            [.boards[] | {name: .name, path: .path}]
+          end
+        ')
+
+        echo "Found boards: $BOARDS_JSON"
+
+        # Get the diff between base and head
+        git fetch origin "$GITHUB_BASE_REF" --depth=1 2>/dev/null || true
+        CHANGED_FILES=$(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD 2>/dev/null || git diff --name-only HEAD~1)
+
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+
+        # Find which boards have changes
+        LABELS_TO_ADD=()
+        while IFS= read -r board_entry; do
+          BOARD_NAME=$(echo "$board_entry" | jq -r '.name')
+          BOARD_PATH=$(echo "$board_entry" | jq -r '.path')
+
+          # Check if any changed file is within this board's path
+          if echo "$CHANGED_FILES" | grep -q "^${BOARD_PATH}/"; then
+            echo "Board $BOARD_NAME has changes (path: $BOARD_PATH)"
+            LABELS_TO_ADD+=("board:$BOARD_NAME")
+          fi
+        done < <(echo "$BOARDS_JSON" | jq -c '.[]')
+
+        if [[ ${#LABELS_TO_ADD[@]} -eq 0 ]]; then
+          echo "No board-specific changes detected"
+          exit 0
+        fi
+
+        echo "Labels to add: ${LABELS_TO_ADD[*]}"
+
+        # Get existing labels on PR
+        EXISTING_LABELS=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' | grep '^board:' || true)
+
+        # Remove board labels that no longer apply
+        for label in $EXISTING_LABELS; do
+          if [[ ! " ${LABELS_TO_ADD[*]} " =~ " ${label} " ]]; then
+            echo "Removing label: $label"
+            gh pr edit "$PR_NUMBER" --remove-label "$label" 2>/dev/null || true
+          fi
+        done
+
+        # Add new labels (create if they don't exist)
+        for label in "${LABELS_TO_ADD[@]}"; do
+          echo "Adding label: $label"
+          # Create label if it doesn't exist (ignore errors if it already exists)
+          gh label create "$label" --description "Changes to board ${label#board:}" --color "0366d6" 2>/dev/null || true
+          gh pr edit "$PR_NUMBER" --add-label "$label"
+        done
+
+        echo "Labels updated successfully"
