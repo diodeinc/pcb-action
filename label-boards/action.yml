@@ -7,6 +7,10 @@ inputs:
     description: "GitHub token with permission to add labels"
     required: false
     default: ${{ github.token }}
+  pr-number:
+    description: "PR number to label (defaults to current PR from event context)"
+    required: false
+    default: ${{ github.event.pull_request.number }}
 
 runs:
   using: "composite"
@@ -19,16 +23,9 @@ runs:
       run: |
         set -e -o pipefail
 
-        # Only run on PRs
-        if [[ -z "$GITHUB_HEAD_REF" ]]; then
-          echo "Not a pull request, skipping label update"
-          exit 0
-        fi
-
-        # Get PR number
-        PR_NUMBER=$(gh pr view --json number -q '.number' 2>/dev/null || echo "")
+        PR_NUMBER="${{ inputs.pr-number }}"
         if [[ -z "$PR_NUMBER" ]]; then
-          echo "Could not determine PR number, skipping"
+          echo "No PR number provided, skipping label update"
           exit 0
         fi
 
