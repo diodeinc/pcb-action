@@ -76,18 +76,7 @@ runs:
 
         echo "Labels to add: ${LABELS_TO_ADD[*]}"
 
-        # Get existing labels on PR
-        EXISTING_LABELS=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' | grep '^board:' || true)
-
-        # Remove board labels that no longer apply
-        for label in $EXISTING_LABELS; do
-          if [[ ! " ${LABELS_TO_ADD[*]} " =~ " ${label} " ]]; then
-            echo "Removing label: $label"
-            gh pr edit "$PR_NUMBER" --remove-label "$label" 2>/dev/null || true
-          fi
-        done
-
-        # Add new labels (create if they don't exist)
+        # Add labels (create if they don't exist)
         for label in "${LABELS_TO_ADD[@]}"; do
           echo "Adding label: $label"
           # Create label if it doesn't exist (ignore errors if it already exists)
@@ -95,4 +84,4 @@ runs:
           gh pr edit "$PR_NUMBER" --add-label "$label"
         done
 
-        echo "Labels updated successfully"
+        echo "Labels added successfully"
