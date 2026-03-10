@@ -70,8 +70,8 @@ runs:
           BOARD_NAME=$(echo "$board_entry" | jq -r '.name')
           BOARD_PATH=$(echo "$board_entry" | jq -r '.path')
 
-          # Check if any changed file is within this board's path
-          if echo "$CHANGED_FILES" | grep -q "^${BOARD_PATH}/"; then
+          # Avoid SIGPIPE from grep -q short-circuiting a piped echo under pipefail.
+          if grep -q "^${BOARD_PATH}/" <<< "$CHANGED_FILES"; then
             echo "Board $BOARD_NAME has changes (path: $BOARD_PATH)"
             LABELS_TO_ADD+=("board:$BOARD_NAME")
           fi
