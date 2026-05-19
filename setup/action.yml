@@ -16,14 +16,14 @@ runs:
       run: |
         set -e -o pipefail
         if [ "${{ inputs.version }}" = "HEAD" ]; then
-          # Download latest main build from prerelease
           mkdir -p ~/.cargo/bin
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/download/latest/pcb -o ~/.cargo/bin/pcb
+          curl --proto '=https' --tlsv1.2 -LsSf https://pcb.api.diode.computer/pcb/main/pcb -o ~/.cargo/bin/pcb
           chmod +x ~/.cargo/bin/pcb
         elif [ "${{ inputs.version }}" = "latest" ]; then
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/latest/download/pcb-installer.sh | sh
+          curl --proto '=https' --tlsv1.2 -LsSf https://pcb.api.diode.computer/pcb/latest/pcb-installer.sh | sh
         else
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diodeinc/pcb/releases/download/${{ inputs.version }}/pcb-installer.sh | sh
+          version="${{ inputs.version }}"
+          curl --proto '=https' --tlsv1.2 -LsSf "https://pcb.api.diode.computer/pcb/v${version#v}/pcb-installer.sh" | sh
         fi
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         export PATH="$HOME/.cargo/bin:$PATH"
